@@ -1,0 +1,22 @@
+set rtp+=<root>
+source plugin/mathfloat.lua  
+
+-\frac{1}{2}
+2\pi\frac{4}{2}/\sqrt{2}
+2^{0.000001}\ln(2.7)\log(10)\sin(\pi/2)
+6^{0.6}
+0.5^{0.6}\cdot\pi
+0.6 (1+1)
+\pi \sin(1)
+5!
+
+ e+1
+
+\pi*e*-2
+e 2 
+\sin(\pi/2)
+
+\tan^{3}\left(\frac{\pi}{6}\right)
+|-2|
+
+| -0.2 (1-2) | + \left|\pi \sin(1)\right|
