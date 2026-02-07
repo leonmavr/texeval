@@ -4,9 +4,9 @@ local MatrixMT = {}
 MatrixMT.__index = MatrixMT
 
 local function is_matrix(x)
-  -- Prefer a structural check over strict metatable identity.
-  -- This avoids "unsupported multiplication" when modules are hot-reloaded
-  -- and older matrix instances still exist with a different MatrixMT.
+  -- Check for structure (table) instead of metadata (getmetatable(x)) ->
+  -- this avoids "unsupported multiplication" when modules are hot-reloaded
+  -- Also, older matrix instances still exist with a different MatrixMT.
   if type(x) ~= "table" then
     return false
   end
@@ -27,16 +27,16 @@ local function fmt_number(x)
 end
 
 function MatrixMT:__tostring()
-  local parts = {}
+  local lines = {}
   for i = 1, self.r do
     local row = self._data[i]
     local row_parts = {}
     for j = 1, self.c do
       row_parts[#row_parts + 1] = fmt_number(row[j])
     end
-    parts[#parts + 1] = "[" .. table.concat(row_parts, ", ") .. "]"
+    lines[#lines + 1] = "[" .. table.concat(row_parts, ", ") .. "]"
   end
-  return "[" .. table.concat(parts, ", ") .. "]"
+  return table.concat(lines, "\n")
 end
 
 local function matmul(A, B)
