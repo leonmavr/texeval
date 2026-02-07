@@ -1,9 +1,11 @@
+-- module return
 local M = {}
 
 local factorial = require("mathfloat.functions.factorial")
 local binom = require("mathfloat.functions.binom")
 local apply_func_powers = require("mathfloat.functions.apply_func_powers")
 local matrix = require("mathfloat.functions.matrix")
+local transpose = require("mathfloat.functions.transpose")
 
 local function trim(s)
   return (s:gsub("^%s+", ""):gsub("%s+$", ""))
@@ -12,7 +14,12 @@ end
 local function mat2lua(body)
   body = body:gsub("\n", " ")
   -- row breaks: \\ in LaTeX
+  -- NOTE: match TWO backslashes, not any backslash command like \pi
+  --       remove space modifiers like \\[1ex]
+  body = body:gsub("%s*\\\\\\\\%s*%b[]%s*", "\n")
   body = body:gsub("%s*\\\\%s*", "\n")
+  -- strip matrix-only helpers that would otherwise leak backslashes
+  body = body:gsub("\\hline", "")
 
   local row_lua = {}
   for row in body:gmatch("[^\n]+") do
@@ -84,6 +91,7 @@ local safe_env = {
   binom = binom,
   mat = matrix.mat,
   matmul = matrix.matmul,
+  transpose = transpose,
   pi   = math.pi,
   e    = math.exp(1),
 }
@@ -94,6 +102,14 @@ local safe_env = {
 local function latex_to_lua(expr)
   -- remove math mode symbols
   expr = expr:gsub("%$", "")
+  -- remove common spacing commands
+  expr = expr:gsub("\\,", "")
+  expr = expr:gsub("\\;", "")
+  expr = expr:gsub("\\:", "")
+  expr = expr:gsub("\\!", "")
+  expr = expr:gsub("\\quad", " ")
+  expr = expr:gsub("\\qquad", " ")
+  expr = expr:gsub("\\%s", " ")
   -- remove decorative sizing macros (any case): \big, \Big, \BIG, \bigg, \Bigg,
   -- and delimiter variants like \bigl, \Bigr, \Bigm, etc.
   expr = expr:gsub("\\[bB][iI][gG][gG]?[lLrRmM]?%s*", "")
@@ -116,6 +132,26 @@ local function latex_to_lua(expr)
   expr = expr:gsub("\\begin%s*{([%a]+matrix)}%s*(.-)%s*\\end%s*{%1}", function(_, body)
     return mat2lua(body)
   end)
+
+  -- transpose: ^T, ^\top, ^\intercal (and braced forms)
+  -- normalize all variants to ^T for easier procesing in the next step
+  expr = expr:gsub("%^{%s*\\top%s*}", "^T")
+  expr = expr:gsub("%^%s*\\top", "^T")
+  expr = expr:gsub("%^{%s*\\intercal%s*}", "^T")
+  expr = expr:gsub("%^%s*\\intercal", "^T")
+  expr = expr:gsub("%^{%s*T%s*}", "^T")
+
+  -- apply transpose to common preceding forms.
+  -- transpose() is a no-op for scalars.
+  -- function calls: matmul(A,B)^T -> transpose(matmul(A,B))
+  expr = expr:gsub("([%a_][%w_]*)%s*(%b())%s*%^%s*T", function(fn, args)
+    return "transpose(" .. fn .. args .. ")"
+  end)
+  -- grouped expressions: (A*B)^T -> transpose(A*B)
+  expr = expr:gsub("(%b())%s*%^%s*T", "transpose%1")
+  -- simple identifiers/numbers: A^T -> transpose(A), 2^T -> transpose(2)
+  expr = expr:gsub("([%a_][%w_]*)%s*%^%s*T", "transpose(%1)")
+  expr = expr:gsub("([%d%.]+)%s*%^%s*T", "transpose(%1)")
   -- trig powers: \sin^2(x), \tan^{3}(\frac{\pi}{6}), etc.
   -- NOTE: this must be run this BEFORE expanding \frac{..}{..} into (..)/(..),
   -- because that generates new parens that confuse the simple (...) matcher.
@@ -193,12 +229,12 @@ end
 local function eval_lua(expr)
   local fn, err = load("return " .. expr, "mathfloat", "t", safe_env)
   if not fn then
-    return nil, err
+    return nil, (err or "load error") .. "\nGenerated Lua: " .. tostring(expr)
   end
 
   local ok, result = pcall(fn)
   if not ok then
-    return nil, result
+    return nil, tostring(result) .. "\nGenerated Lua: " .. tostring(expr)
   end
 
   return result
@@ -255,6 +291,7 @@ local function insert_implicit_mult(expr)
     binom = true,
     mat = true,
     matmul = true,
+    transpose = true,
   }
   expr = expr:gsub("(%a+)%(", function(name)
     if functions[name] then
@@ -270,6 +307,14 @@ local function insert_implicit_mult(expr)
       return name .. "*("
     end
   end)
+
+  -- safety catch: if implicit-multiplication accidentally created `fn*(...)` for
+  -- a whitelisted function name, rewrite it back into a function call.
+  for name, ok in pairs(functions) do
+    if ok then
+      expr = expr:gsub(name .. "%s*%*%s*%(", name .. "(")
+    end
+  end
 
   -- restore scientific notation
   expr = expr:gsub("__SCINOT(%d+)__", function(i)

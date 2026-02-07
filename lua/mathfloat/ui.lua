@@ -44,7 +44,7 @@ function M.show(result)
       vim.api.nvim_win_close(win, true)
     end
     cleanup()
-  end, 5000)
+  end, 10000)
 end
 
 return M

@@ -1,18 +1,29 @@
 local M = {}
-
 local MatrixMT = {}
+-- matrix meta to make it indexable
 MatrixMT.__index = MatrixMT
 
 local function is_matrix(x)
-  return type(x) == "table" and getmetatable(x) == MatrixMT
+  -- Prefer a structural check over strict metatable identity.
+  -- This avoids "unsupported multiplication" when modules are hot-reloaded
+  -- and older matrix instances still exist with a different MatrixMT.
+  if type(x) ~= "table" then
+    return false
+  end
+  if type(x._data) ~= "table" then
+    return false
+  end
+  if type(x.r) ~= "number" or type(x.c) ~= "number" then
+    return false
+  end
+  return true
 end
-
 local function fmt_number(x)
   if type(x) ~= "number" then
     return tostring(x)
   end
-  -- Compact, stable-ish display for floats
-  return string.format("%.10g", x)
+  -- Up to 6 decimals, strip trailing zeros
+  return string.format("%.6g", x)
 end
 
 function MatrixMT:__tostring()
@@ -30,9 +41,8 @@ end
 
 local function matmul(A, B)
   if A.c ~= B.r then
-    error(string.format("matrix dimension mismatch: (%dx%d) * (%dx%d)", A.r, A.c, B.r, B.c))
+    error(string.format("matmul: matrix dimension mismatch: (%dx%d) * (%dx%d)", A.r, A.c, B.r, B.c))
   end
-
   local out = {}
   for i = 1, A.r do
     out[i] = {}
@@ -58,6 +68,7 @@ local function scale(A, s)
   return M.mat(out)
 end
 
+-- overload * operator
 function MatrixMT.__mul(a, b)
   if type(a) == "number" and is_matrix(b) then
     return scale(b, a)
@@ -68,38 +79,38 @@ function MatrixMT.__mul(a, b)
   if is_matrix(a) and is_matrix(b) then
     return matmul(a, b)
   end
-  error("unsupported multiplication")
+  error("ERROR: unsupported multiplication")
 end
 
 function M.mat(tbl)
   if type(tbl) ~= "table" then
-    error("mat expects a table")
+    error("ERROR: mat expects a table")
   end
 
   local r = #tbl
   if r == 0 then
-    error("mat expects at least one row")
+    error("ERROR: mat expects at least one row")
   end
 
   if type(tbl[1]) ~= "table" then
-    error("mat expects a 2D table")
+    error("ERROR: mat expects a 2D table")
   end
 
   local c = #tbl[1]
   if c == 0 then
-    error("mat expects at least one column")
+    error("ERROR: mat expects at least one column")
   end
 
   for i = 1, r do
     if type(tbl[i]) ~= "table" then
-      error("mat expects a 2D table")
+      error("ERROR:mat expects a 2D table")
     end
     if #tbl[i] ~= c then
-      error("mat expects rectangular rows")
+      error("ERROR: mat expects rectangular rows")
     end
     for j = 1, c do
       if type(tbl[i][j]) ~= "number" then
-        error("mat entries must be numbers")
+        error("ERROR: mat entries must be numbers")
       end
     end
   end
@@ -109,11 +120,11 @@ end
 
 M.matmul = function(a, b)
   if not is_matrix(a) or not is_matrix(b) then
-    error("matmul expects matrices")
+    error("ERROR: matmul expects matrices")
   end
   return matmul(a, b)
 end
 
+-- return module value
 M.is_matrix = is_matrix
-
 return M
