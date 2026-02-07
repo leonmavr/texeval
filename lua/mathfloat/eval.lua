@@ -110,6 +110,38 @@ local function expand_frac(expr)
   return table.concat(out)
 end
 
+local function expand_sqrt(expr)
+  -- expand \sqrt{a} into sqrt(a), supporting nested braces.
+  local out = {}
+  local i = 1
+  while i <= #expr do
+    local s, e = expr:find("\\sqrt", i, true)
+    if not s then
+      out[#out + 1] = expr:sub(i)
+      break
+    end
+    out[#out + 1] = expr:sub(i, s - 1)
+    i = e + 1
+
+    while i <= #expr and expr:sub(i, i):match("%s") do
+      i = i + 1
+    end
+
+    if expr:sub(i, i) ~= "{" then
+      out[#out + 1] = "\\sqrt"
+    else
+      local a, next_i = parse_braced(expr, i)
+      if not a then
+        out[#out + 1] = "\\sqrt"
+      else
+        out[#out + 1] = "sqrt(" .. expand_sqrt(a) .. ")"
+        i = next_i
+      end
+    end
+  end
+  return table.concat(out)
+end
+
 ----------------------------------------------------------------------
 -- Supported functions
 ----------------------------------------------------------------------
@@ -219,6 +251,8 @@ local function latex_to_lua(expr)
   expr = apply_func_powers(expr, "tanh")
   -- \frac{a}{b} -> (a)/(b) (brace-aware, supports nesting)
   expr = expand_frac(expr)
+  -- \sqrt{a} -> sqrt(a) (brace-aware, supports nesting)
+  expr = expand_sqrt(expr)
   -- \binom{N}{k} -> binom(N,k)
   expr = expr:gsub(
     "\\binom%s*{([^}]+)}%s*{([^}]+)}",
@@ -230,12 +264,9 @@ local function latex_to_lua(expr)
   expr = expr:gsub("\\frac%s*\\mathrm%s*{e}%s*([%w%.]+)", "(e)/(%1)")
   expr = expr:gsub("\\frac%s*([%w%.]+)%s*\\mathrm%s*{e}", "(%1)/(e)")
   expr = expr:gsub("\\frac%s*([%w%.]+)%s*([%w%.]+)", "(%1)/(%2)")
-  -- \sqrt{a} -> sqrt(a)
-  expr = expr:gsub(
-    "\\sqrt%s*{([^}]+)}",
-    "sqrt(%1)"
-  )
   -- \sqrt(a) -> sqrt(a)
+  -- Note: this simple matcher doesn't support nested parentheses, but it's fine
+  -- for common cases since brace-form is the main LaTeX idiom.
   expr = expr:gsub("\\sqrt%s*%(([^)]+)%)", "sqrt(%1)")
   -- trig / log functions (support both {..} and (..))
   expr = expr:gsub("\\sin%s*{([^}]+)}",    "sin(%1)")
@@ -384,6 +415,13 @@ function M.evaluate(expr)
   local lua_expr = latex_to_lua(expr)
   lua_expr = insert_implicit_mult(lua_expr)
   return eval_lua(lua_expr)
+end
+
+-- For tests/debugging: return the generated Lua expression after translation.
+function M.to_lua(expr)
+  local lua_expr = latex_to_lua(expr)
+  lua_expr = insert_implicit_mult(lua_expr)
+  return lua_expr
 end
 
 return M
