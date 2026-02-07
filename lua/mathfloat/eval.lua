@@ -69,7 +69,7 @@ local function expand_frac(expr)
   local out = {}
   local i = 1
   while i <= #expr do
-    -- NOTE: use a single literal backslash ("\\frac" in Lua source)
+    -- NOTE: use a single literal backslash ("\\frac" in Lua)
     local s, e = expr:find("\\frac", i, true)
     if not s then
       out[#out + 1] = expr:sub(i)
@@ -114,32 +114,18 @@ end
 -- Supported functions
 ----------------------------------------------------------------------
 local function log10(x)
-  -- these math functions are not defined in every version of Lua
-  if type(math.log10) == "function" then
-    return math.log10(x)
-  end
-  -- so keep a fallback
   return math.log(x) / math.log(10)
 end
 
 local function sinh(x)
-  if type(math.sinh) == "function" then
-    return math.sinh(x)
-  end
   return (math.exp(x) - math.exp(-x)) / 2
 end
 
 local function cosh(x)
-  if type(math.cosh) == "function" then
-    return math.cosh(x)
-  end
   return (math.exp(x) + math.exp(-x)) / 2
 end
 
 local function tanh(x)
-  if type(math.tanh) == "function" then
-    return math.tanh(x)
-  end
   local ex = math.exp(x)
   local enx = math.exp(-x)
   return (ex - enx) / (ex + enx)
