@@ -40,6 +40,76 @@ local function mat2lua(body)
   return "mat({" .. table.concat(row_lua, ",") .. "})"
 end
 
+local function parse_braced(s, i)
+  -- parse nested braces starting from s[i]
+  -- return the contents and the index of the next character after the closing brace
+  if s:sub(i, i) ~= "{" then
+    return nil, i
+  end
+  local depth = 0
+  local start_i = i + 1
+  local j = i
+  while j <= #s do
+    local ch = s:sub(j, j)
+    if ch == "{" then
+      depth = depth + 1
+    elseif ch == "}" then
+      depth = depth - 1
+      if depth == 0 then
+        return s:sub(start_i, j - 1), j + 1
+      end
+    end
+    j = j + 1
+  end
+  return nil, i
+end
+
+local function expand_frac(expr)
+  -- expand \frac{a}{b} into (a)/(b) to support nested braces.
+  local out = {}
+  local i = 1
+  while i <= #expr do
+    -- NOTE: use a single literal backslash ("\\frac" in Lua source)
+    local s, e = expr:find("\\frac", i, true)
+    if not s then
+      out[#out + 1] = expr:sub(i)
+      break
+    end
+    out[#out + 1] = expr:sub(i, s - 1)
+    i = e + 1
+
+    while i <= #expr and expr:sub(i, i):match("%s") do
+      i = i + 1
+    end
+
+    if expr:sub(i, i) ~= "{" then
+      out[#out + 1] = "\\frac"
+    else
+      local a, next_i = parse_braced(expr, i)
+      if not a then
+        out[#out + 1] = "\\frac"
+      else
+        i = next_i
+        while i <= #expr and expr:sub(i, i):match("%s") do
+          i = i + 1
+        end
+        if expr:sub(i, i) ~= "{" then
+          out[#out + 1] = "\\frac{" .. a .. "}"
+        else
+          local b, next_i2 = parse_braced(expr, i)
+          if not b then
+            out[#out + 1] = "\\frac{" .. a .. "}"
+          else
+            out[#out + 1] = "(" .. expand_frac(a) .. ")/(" .. expand_frac(b) .. ")"
+            i = next_i2
+          end
+        end
+      end
+    end
+  end
+  return table.concat(out)
+end
+
 ----------------------------------------------------------------------
 -- Supported functions
 ----------------------------------------------------------------------
@@ -161,11 +231,8 @@ local function latex_to_lua(expr)
   expr = apply_func_powers(expr, "sinh")
   expr = apply_func_powers(expr, "cosh")
   expr = apply_func_powers(expr, "tanh")
-  -- \frac{a}{b} -> (a)/(b)
-  expr = expr:gsub(
-    "\\frac%s*{([^}]+)}%s*{([^}]+)}",
-    "(%1)/(%2)"
-  )
+  -- \frac{a}{b} -> (a)/(b) (brace-aware, supports nesting)
+  expr = expand_frac(expr)
   -- \binom{N}{k} -> binom(N,k)
   expr = expr:gsub(
     "\\binom%s*{([^}]+)}%s*{([^}]+)}",
