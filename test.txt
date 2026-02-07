@@ -10,7 +10,7 @@ source plugin/mathfloat.lua
 \pi \sin(1)
 5!
 
- e+1
+5!e+1^-0.001
 
 \pi*e*-2
 e 2 
@@ -20,3 +20,5 @@ e 2
 |-2|
 
 | -0.2 (1-2) | + \left|\pi \sin(1)\right|
+
+that's such a hard matrix multiplication: \begin{pmatrix}1 & 2\\3 & 4\end{pmatrix} \cdot \begin{pmatrix}5 & 6\\7 & 8\end{pmatrix}

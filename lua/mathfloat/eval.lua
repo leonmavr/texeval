@@ -3,14 +3,45 @@ local M = {}
 local factorial = require("mathfloat.functions.factorial")
 local binom = require("mathfloat.functions.binom")
 local apply_func_powers = require("mathfloat.functions.apply_func_powers")
+local matrix = require("mathfloat.functions.matrix")
+
+local function trim(s)
+  return (s:gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
+local function mat2lua(body)
+  body = body:gsub("\n", " ")
+  -- row breaks: \\ in LaTeX
+  body = body:gsub("%s*\\\\%s*", "\n")
+
+  local row_lua = {}
+  for row in body:gmatch("[^\n]+") do
+    row = trim(row)
+    if row ~= "" then
+      row = row:gsub("%s*&%s*", "\t")
+      local cols = {}
+      for col in row:gmatch("[^\t]+") do
+        col = trim(col)
+        if col ~= "" then
+          cols[#cols + 1] = col
+        end
+      end
+      row_lua[#row_lua + 1] = "{" .. table.concat(cols, ",") .. "}"
+    end
+  end
+
+  return "mat({" .. table.concat(row_lua, ",") .. "})"
+end
 
 ----------------------------------------------------------------------
 -- Supported functions
 ----------------------------------------------------------------------
 local function log10(x)
+  -- these math functions are not defined in every version of Lua
   if type(math.log10) == "function" then
     return math.log10(x)
   end
+  -- so keep a fallback
   return math.log(x) / math.log(10)
 end
 
@@ -51,6 +82,8 @@ local safe_env = {
   ln   = math.log,
   factorial = factorial,
   binom = binom,
+  mat = matrix.mat,
+  matmul = matrix.matmul,
   pi   = math.pi,
   e    = math.exp(1),
 }
@@ -77,6 +110,12 @@ local function latex_to_lua(expr)
   -- also handle \left\lvert x \right\rvert
   expr = expr:gsub("\\left%s*\\lvert", "abs(")
   expr = expr:gsub("\\right%s*\\rvert", ")")
+
+  -- matrix environments: \begin{pmatrix} ... \end{pmatrix}, 
+  --                        \begin{bmatrix} ... \end{bmatrix}, etc.
+  expr = expr:gsub("\\begin%s*{([%a]+matrix)}%s*(.-)%s*\\end%s*{%1}", function(_, body)
+    return mat2lua(body)
+  end)
   -- trig powers: \sin^2(x), \tan^{3}(\frac{\pi}{6}), etc.
   -- NOTE: this must be run this BEFORE expanding \frac{..}{..} into (..)/(..),
   -- because that generates new parens that confuse the simple (...) matcher.
@@ -132,9 +171,8 @@ local function latex_to_lua(expr)
   expr = expr:gsub("\\mathrm%s*{\\pi}", "pi")
   -- exponent: a^{b} -> a^(b)
   expr = expr:gsub("(%w+)%s*%^{([^}]+)}", "%1^(%2)")
-  -- treat leftover grouping braces as parentheses: {e} -> (e)
-  expr = expr:gsub("{", "(")
-  expr = expr:gsub("}", ")")
+  -- allow simple grouping braces around Euler's number: {e} -> (e)
+  expr = expr:gsub("{%s*e%s*}", "(e)")
   -- factorial
   expr = expr:gsub("(%b())%s*!", function(group)
     return "factorial" .. group
@@ -214,6 +252,9 @@ local function insert_implicit_mult(expr)
     log = true,
     ln = true,
     factorial = true,
+    binom = true,
+    mat = true,
+    matmul = true,
   }
   expr = expr:gsub("(%a+)%(", function(name)
     if functions[name] then
