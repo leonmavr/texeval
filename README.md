@@ -55,3 +55,11 @@ vim.keymap.set('v', '<Leader>t', ':Texeval<CR>', { silent = true })
 <div align="center">
   <img src="https://github.com/leonmavr/texeval/blob/master/assets/examples.png" />
 </div>
+
+### Unit tests
+
+It's been tested pretty thoroughly and the unit tests are found at `tests/run.lua`.
+You can run them with:
+```
+nvim --headless -u NONE "+lua dofile('tests/run.lua')" +qa
+```
