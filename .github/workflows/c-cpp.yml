@@ -13,14 +13,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Install Neovim
+    - name: Install Neovim and run tests
       run: |
         curl -sL -o nvim.appimage https://github.com/neovim/neovim/releases/download/nightly/nvim-linux-x86_64.appimage
         chmod +x nvim.appimage
         ./nvim.appimage --appimage-extract >/dev/null
         export PATH="$PWD/squashfs-root/usr/bin:$PATH"
         nvim --version
-    - name: Run tests
-      run: |
         nvim --headless -u NONE "+lua dofile('tests/run.lua')" +qa
 
