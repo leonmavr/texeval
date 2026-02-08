@@ -13,11 +13,18 @@ end
 
 local function mat2lua(body)
   body = body:gsub("\n", " ")
+  local ROWBREAK = [[\\]] -- two backslashes
   -- row breaks: \\ in LaTeX
   -- NOTE: match TWO backslashes, not any backslash command like \pi
   --       remove space modifiers like \\[1ex]
-  body = body:gsub("%s*\\\\\\\\%s*%b[]%s*", "\n")
-  body = body:gsub("%s*\\\\%s*", "\n")
+  body = body:gsub("%s*" .. ROWBREAK .. "%s*%b[]%s*", "\n")
+  -- plain row break: \\
+  body = body:gsub("%s*" .. ROWBREAK .. "%s*", "\n")
+  -- FALLBACK: some editors/selection pipelines can accidentally turn `\\` into
+  -- `\` when whitespace sits between the slashes or at end-of-capture ->
+  -- strip such spaces
+  body = body:gsub("\\%s+", "\n")
+  body = body:gsub("\\%s*$", "\n")
   -- strip matrix-only helpers that would otherwise leak backslashes
   body = body:gsub("\\hline", "")
 
@@ -351,7 +358,9 @@ local function latex_to_lua(expr)
   expr = expr:gsub("\\!", "")
   expr = expr:gsub("\\quad", " ")
   expr = expr:gsub("\\qquad", " ")
-  expr = expr:gsub("\\%s", " ")
+  -- TeX interword space command: "\ " (backslash + space).
+  -- Do NOT match newlines here, or it will break matrix row breaks ("\\").
+  expr = expr:gsub("\\[ \t]", " ")
   -- remove decorative sizing macros (any case): \big, \Big, \BIG, \bigg, \Bigg,
   -- and delimiter variants like \bigl, \Bigr, \Bigm, etc.
   expr = expr:gsub("\\[bB][iI][gG][gG]?[lLrRmM]?%s*", "")

@@ -197,6 +197,28 @@ test("matrix multiplication", function()
   assert_eq(C._data[2][2], 50)
 end)
 
+test("matrix multiplication with whitespace/newlines", function()
+  local A = [[\begin{bmatrix}
+        0.299 & 0.587 & 0.114 \\
+       -0.14713 & -0.28886 & 0.436 \\
+        0.615 & -0.51499 & -0.10001
+    \end{bmatrix}]]
+
+  local B = [[\begin{bmatrix}
+         0.926 \\
+         0.205 \\
+         0.3
+    \end{bmatrix}]]
+
+  local C = eval_ok(A .. " * " .. B)
+  assert_eq(matrix.is_matrix(C), true)
+  assert_eq(C.r, 3)
+  assert_eq(C.c, 1)
+  assert_approx(C._data[1][1], 0.431409, 1e-6)
+  assert_approx(C._data[2][1], -0.06465868, 1e-6)
+  assert_approx(C._data[3][1], 0.43391405, 1e-6)
+end)
+
 -- spaces and redundant stuff
 test("Spaces and paren size", function()
   local r = eval_ok("1/\\Big(2\\quad \\left(  3   \\; \\, -4\\right)\\Big)")
