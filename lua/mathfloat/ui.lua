@@ -1,5 +1,7 @@
 -- floating window logic
 
+---@diagnostic disable: undefined-global
+
 local M = {}
 
 -- to avoid name clashes with other plugins, e.g. with cleanup function

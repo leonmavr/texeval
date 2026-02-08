@@ -1,6 +1,7 @@
 # Tests
 
-This plugin is easiest to test inside headless Neovim (so it uses the same Lua runtime as normal usage).
+This plugin is easiest to test inside headless Neovim.
+You can assert LaTeX expressions directly inside the test file.
 
 ## Run tests locally
 

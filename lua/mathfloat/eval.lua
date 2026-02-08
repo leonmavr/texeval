@@ -64,6 +64,130 @@ local function parse_braced(s, i)
   return nil, i
 end
 
+local function parse_parened(s, i)
+  -- parse nested parentheses starting from s[i]
+  -- return the contents and the index of the next character after the closing paren
+  if s:sub(i, i) ~= "(" then
+    return nil, i
+  end
+  local depth = 0
+  local start_i = i + 1
+  local j = i
+  while j <= #s do
+    local ch = s:sub(j, j)
+    if ch == "(" then
+      depth = depth + 1
+    elseif ch == ")" then
+      depth = depth - 1
+      if depth == 0 then
+        return s:sub(start_i, j - 1), j + 1
+      end
+    end
+    j = j + 1
+  end
+  return nil, i
+end
+
+local function expand_ln_log(expr)
+  -- expand \ln{...}/\ln(...), \log{...}/\log(...), supporting nested braces/parens
+  local function expand_cmd(s, cmd, fn)
+    local out = {}
+    local i = 1
+    while i <= #s do
+      local start_i, end_i = s:find("\\" .. cmd, i, true)
+      if not start_i then
+        out[#out + 1] = s:sub(i)
+        break
+      end
+      out[#out + 1] = s:sub(i, start_i - 1)
+      i = end_i + 1
+      while i <= #s and s:sub(i, i):match("%s") do
+        i = i + 1
+      end
+
+      local open = s:sub(i, i)
+      if open == "{" then
+        local a, next_i = parse_braced(s, i)
+        if not a then
+          out[#out + 1] = "\\" .. cmd
+        else
+          a = expand_ln_log(a)
+          out[#out + 1] = fn .. "(" .. a .. ")"
+          i = next_i
+        end
+      elseif open == "(" then
+        local a, next_i = parse_parened(s, i)
+        if not a then
+          out[#out + 1] = "\\" .. cmd
+        else
+          a = expand_ln_log(a)
+          out[#out + 1] = fn .. "(" .. a .. ")"
+          i = next_i
+        end
+      else
+        out[#out + 1] = "\\" .. cmd
+      end
+    end
+    return table.concat(out)
+  end
+
+  expr = expand_cmd(expr, "ln", "ln")
+  expr = expand_cmd(expr, "log", "log")
+  return expr
+end
+
+local function expand_trig(expr)
+  -- expand \sin/\cos/\tan/\sinh/\cosh/\tanh with nested brace/paren args
+  local function expand_cmd(s, cmd, fn)
+    local out = {}
+    local i = 1
+    while i <= #s do
+      local start_i, end_i = s:find("\\" .. cmd, i, true)
+      if not start_i then
+        out[#out + 1] = s:sub(i)
+        break
+      end
+      out[#out + 1] = s:sub(i, start_i - 1)
+      i = end_i + 1
+
+      while i <= #s and s:sub(i, i):match("%s") do
+        i = i + 1
+      end
+
+      local open = s:sub(i, i)
+      if open == "{" then
+        local a, next_i = parse_braced(s, i)
+        if not a then
+          out[#out + 1] = "\\" .. cmd
+        else
+          a = expand_trig(a)
+          out[#out + 1] = fn .. "(" .. a .. ")"
+          i = next_i
+        end
+      elseif open == "(" then
+        local a, next_i = parse_parened(s, i)
+        if not a then
+          out[#out + 1] = "\\" .. cmd
+        else
+          a = expand_trig(a)
+          out[#out + 1] = fn .. "(" .. a .. ")"
+          i = next_i
+        end
+      else
+        out[#out + 1] = "\\" .. cmd
+      end
+    end
+    return table.concat(out)
+  end
+  expr = expand_cmd(expr, "sin", "sin")
+  expr = expand_cmd(expr, "cos", "cos")
+  expr = expand_cmd(expr, "tan", "tan")
+  expr = expand_cmd(expr, "sinh", "sinh")
+  expr = expand_cmd(expr, "cosh", "cosh")
+  expr = expand_cmd(expr, "tanh", "tanh")
+  return expr
+end
+
 local function expand_frac(expr)
   -- expand \frac{a}{b} into (a)/(b) to support nested braces.
   local out = {}
@@ -135,6 +259,36 @@ local function expand_sqrt(expr)
         out[#out + 1] = "\\sqrt"
       else
         out[#out + 1] = "sqrt(" .. expand_sqrt(a) .. ")"
+        i = next_i
+      end
+    end
+  end
+  return table.concat(out)
+end
+
+local function expand_superscripts(expr)
+  -- convert LaTeX braced superscripts `^{...}` into Lua `^(...)` ->
+  -- make them brace-aware and supports nesting inside the exponent
+  local out = {}
+  local i = 1
+  while i <= #expr do
+    local s, e = expr:find("^", i, true)
+    if not s then
+      out[#out + 1] = expr:sub(i)
+      break
+    end
+
+    out[#out + 1] = expr:sub(i, s)
+    i = e + 1
+
+    while i <= #expr and expr:sub(i, i):match("%s") do
+      i = i + 1
+    end
+
+    if expr:sub(i, i) == "{" then
+      local a, next_i = parse_braced(expr, i)
+      if a then
+        out[#out] = out[#out]:sub(1, -2) .. "^(" .. a .. ")"
         i = next_i
       end
     end
@@ -253,6 +407,10 @@ local function latex_to_lua(expr)
   expr = expand_frac(expr)
   -- \sqrt{a} -> sqrt(a) (brace-aware, supports nesting)
   expr = expand_sqrt(expr)
+  -- \ln(...) and \log(...) (brace/paren-aware, supports nesting)
+  expr = expand_ln_log(expr)
+  -- trig functions (brace/paren-aware, supports nesting)
+  expr = expand_trig(expr)
   -- \binom{N}{k} -> binom(N,k)
   expr = expr:gsub(
     "\\binom%s*{([^}]+)}%s*{([^}]+)}",
@@ -268,29 +426,13 @@ local function latex_to_lua(expr)
   -- Note: this simple matcher doesn't support nested parentheses, but it's fine
   -- for common cases since brace-form is the main LaTeX idiom.
   expr = expr:gsub("\\sqrt%s*%(([^)]+)%)", "sqrt(%1)")
-  -- trig / log functions (support both {..} and (..))
-  expr = expr:gsub("\\sin%s*{([^}]+)}",    "sin(%1)")
-  expr = expr:gsub("\\sin%s*%(([^)]+)%)",  "sin(%1)")
-  expr = expr:gsub("\\cos%s*{([^}]+)}",    "cos(%1)")
-  expr = expr:gsub("\\cos%s*%(([^)]+)%)",  "cos(%1)")
-  expr = expr:gsub("\\tan%s*{([^}]+)}",    "tan(%1)")
-  expr = expr:gsub("\\tan%s*%(([^)]+)%)",  "tan(%1)")
-  expr = expr:gsub("\\sinh%s*{([^}]+)}",   "sinh(%1)")
-  expr = expr:gsub("\\sinh%s*%(([^)]+)%)", "sinh(%1)")
-  expr = expr:gsub("\\cosh%s*{([^}]+)}",   "cosh(%1)")
-  expr = expr:gsub("\\cosh%s*%(([^)]+)%)", "cosh(%1)")
-  expr = expr:gsub("\\tanh%s*{([^}]+)}",   "tanh(%1)")
-  expr = expr:gsub("\\tanh%s*%(([^)]+)%)", "tanh(%1)")
-  expr = expr:gsub("\\log%s*{([^}]+)}",    "log(%1)")
-  expr = expr:gsub("\\log%s*%(([^)]+)%)",  "log(%1)")
-  expr = expr:gsub("\\ln%s*{([^}]+)}",     "ln(%1)")
-  expr = expr:gsub("\\ln%s*%(([^)]+)%)",   "ln(%1)")
+  -- trig/ln/log are expanded earlier by brace/paren-aware expanders
   -- constants
   expr = expr:gsub("\\pi", "pi")
   expr = expr:gsub("\\mathrm%s*{e}", "e")
   expr = expr:gsub("\\mathrm%s*{\\pi}", "pi")
-  -- exponent: a^{b} -> a^(b)
-  expr = expr:gsub("(%w+)%s*%^{([^}]+)}", "%1^(%2)")
+  -- exponent: ^{...} -> ^(...) (brace-aware, supports nesting)
+  expr = expand_superscripts(expr)
   -- allow simple grouping braces around Euler's number: {e} -> (e)
   expr = expr:gsub("{%s*e%s*}", "(e)")
   -- factorial

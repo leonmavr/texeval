@@ -5,7 +5,6 @@ local function transpose(x)
     -- scalars are skipped
     return x
   end
-
   local out = {}
   for j = 1, x.c do
     out[j] = {}
@@ -13,7 +12,6 @@ local function transpose(x)
       out[j][i] = x._data[i][j]
     end
   end
-
   return matrix.mat(out)
 end
 
