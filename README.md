@@ -7,6 +7,7 @@ Evaluate LaTeX expressions in floating windows without leaving nvim.
 - [x] Whitespace-agnostic and bracket modifier-agnostic
 - [x] Transcendental functions (trig, log, etc)
 - [x] Square roots and powers
+- [x] Factorials and binomials 
 - [x] Scientific notation (`5e-4`)
 - [X] Matrix multiplication and transpore
 
