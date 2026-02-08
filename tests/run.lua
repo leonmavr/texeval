@@ -175,6 +175,17 @@ test("matrix transpose (intercal)", function()
   assert_eq(AT._data[2][2], 4)
 end)
 
+test("nested transpose", function()
+  local AT = eval_ok("(\\begin{pmatrix}1 & 2\\\\3 & 4\\end{pmatrix}^\\intercal)^T")
+  assert_eq(matrix.is_matrix(AT), true)
+  assert_eq(AT.r, 2)
+  assert_eq(AT.c, 2)
+  assert_eq(AT._data[1][1], 1)
+  assert_eq(AT._data[1][2], 2)
+  assert_eq(AT._data[2][1], 3)
+  assert_eq(AT._data[2][2], 4)
+end)
+
 test("matrix multiplication", function()
   local A = "\\begin{bmatrix}1 & 2\\\\3 & 4\\end{bmatrix}"
   local B = "\\begin{pmatrix}5 & 6\\\\7 & 8\\end{pmatrix}"
@@ -186,6 +197,11 @@ test("matrix multiplication", function()
   assert_eq(C._data[2][2], 50)
 end)
 
+-- spaces and redundant stuff
+test("Spaces and paren size", function()
+  local r = eval_ok("1/\\Big(2\\quad \\left(  3   \\; \\, -4\\right)\\Big)")
+  assert_eq(r, 1/(2*(3-4)), 1e-2)
+end)
 
 local function run_all()
   local passed = 0
