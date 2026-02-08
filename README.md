@@ -34,7 +34,7 @@ use {
 ```
 Then, execute `PackerSync` (hit `Esc`, `:PackerSync`) and you're ready to go.
 
-### How to use
+## How to use
 
 In visual model, select the expression to evaluate (press `v` and navigate to select it).
 Then in the command line (press `:`) run:
@@ -46,7 +46,7 @@ You may want to map this to a keybind of your choice instead of invoking `Texeva
 vim.keymap.set('v', '<Leader>t', ':Texeval<CR>', { silent = true })
 ```
 
-### Examples
+## Examples
 
 <div align="center">
   <img src="https://github.com/leonmavr/texeval/blob/master/assets/demo_before_after.png" />
@@ -56,7 +56,7 @@ vim.keymap.set('v', '<Leader>t', ':Texeval<CR>', { silent = true })
   <img src="https://github.com/leonmavr/texeval/blob/master/assets/examples.png" />
 </div>
 
-### Unit tests
+## Unit tests
 
 It's been tested pretty thoroughly and the unit tests are found at `tests/run.lua`.
 You can run them with:
