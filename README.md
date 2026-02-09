@@ -9,10 +9,8 @@ Evaluate LaTeX expressions in floating windows without leaving nvim.
 - [x] Square roots and powers
 - [x] Factorials and binomials 
 - [x] Scientific notation (`5e-4`)
-- [X] Matrix multiplication and transpore
-
-Future ideas:
-- [ ] Copy to clipboard and convert result back to LaTeX syntax    
+- [x] Matrix multiplication and transpore
+- [x] Copy to clipboard and convert result back to LaTeX syntax    
 
 ## How to install
 
@@ -37,6 +35,22 @@ use {
 }
 ```
 Then, execute `PackerSync` (hit `Esc`, `:PackerSync`) and you're ready to go.
+
+### With lazy.nvim
+
+(untested) Add the following inside your `require("lazy").setup(...)`:
+```
+{
+    "leonmavr/texeval",
+}
+```
+
+### With Plug
+
+(untested) Add the following to your `init.vim`/`init.lua`:
+```
+v:null
+```
 
 ## How to use
 
@@ -73,7 +87,9 @@ end, { noremap = true, silent = true })
 https://github.com/user-attachments/assets/7126db14-e20f-497c-a35f-b12a2d8ace13
 
 
-## Unit tests
+## Testing 
+
+### Unit tests
 
 It's been tested pretty thoroughly and the unit tests are found at `tests/run.lua`.
 You can run them with:
@@ -81,3 +97,9 @@ You can run them with:
 nvim --headless -u NONE "+lua dofile('tests/run.lua')" +qa
 ```
 
+### Manual test when developing
+
+```
+:set rtp+=/path/to/root
+:source plugin/mathfloat.lua
+```
