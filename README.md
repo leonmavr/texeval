@@ -69,6 +69,10 @@ end, { noremap = true, silent = true })
   <img src="https://github.com/leonmavr/texeval/blob/master/assets/examples.png" />
 </div>
 
+
+https://github.com/user-attachments/assets/7126db14-e20f-497c-a35f-b12a2d8ace13
+
+
 ## Unit tests
 
 It's been tested pretty thoroughly and the unit tests are found at `tests/run.lua`.
