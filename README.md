@@ -18,32 +18,45 @@ Future ideas:
 
 ### With Packer
 
-Add this to your `init.lua`:
+For a minimal installation, add this to your `init.lua`:
 ```
 use 'leonmavr/texeval'
 ```
-Or if you wish to add a keybind of your choice to invoke it this way in visual mode:
+If you wish to install it with custom keybinds for evaluation and pasting, add this instead:
 ```
 use {
-  "leonmavr/texeval",
-  config = function()
-    -- <leader>t in visual mode to call it
-    vim.keymap.set("v", "<leader>t", ":<C-U>Texeval<CR>", { noremap = true, silent = true })
-  end,
+    "leonmavr/texeval",
+    config = function()
+        -- visual: evaluate selection
+        vim.keymap.set("v", "<leader>t", ":<C-U>Texeval<CR>", { noremap = true, silent = true })
+        -- normal: after evaluation, paste result at cursor
+        vim.keymap.set("n", "<leader>tp", function()
+            vim.api.nvim_put(vim.split(vim.g.texeval_result or "", "\n"), "c", true, true)
+        end, { noremap = true, silent = true })
+    end,
 }
 ```
 Then, execute `PackerSync` (hit `Esc`, `:PackerSync`) and you're ready to go.
 
 ## How to use
 
-In visual model, select the expression to evaluate (press `v` and navigate to select it).
+Texeval can both evaluate and paste the result. For matrices, the result will be formatted in LaTeX syntax. 
+
+To evaluate an expression, switch to visual model, select the expression to evaluate (press `v` and navigate to select it).
 Then in the command line (press `:`) run:
 ```
 :'<,'>Texeval
 ```
-You may want to map this to a keybind of your choice instead of invoking `Texeval` every time:
+Pasting is more complicated as the result is stored in the global `vim.g.texeval_result` (or `g:texeval_result` in vimscript).
+
+Therefore it's suggested to add the following two mappings in your `init.lua`, either wrapped in the package as earlier or standalone:
 ```
+-- visual mode: evaluate
 vim.keymap.set('v', '<Leader>t', ':Texeval<CR>', { silent = true })
+-- normal mode: paste
+vim.keymap.set("n", "<leader>tp", function()
+  vim.api.nvim_put(vim.split(vim.g.texeval_result or "", "\n"), "c", true, true)
+end, { noremap = true, silent = true })
 ```
 
 ## Examples
@@ -63,3 +76,4 @@ You can run them with:
 ```
 nvim --headless -u NONE "+lua dofile('tests/run.lua')" +qa
 ```
+
